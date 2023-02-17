@@ -2,7 +2,7 @@
 
 /**
  * fork_wait_exec - executes commands by first forking a child process
- * then executing in that child while the parent process waits
+ * then executing in that child while the parent process waits.
  *
  * @commands: array of strings
  * commands[0] is command to execute

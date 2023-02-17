@@ -1,7 +1,7 @@
 #include "shell.h"
 
 /**
- * command_error - prints error message when command is not found
+ * command_error - prints error message when command is not found.
  * @NAME: name of program
  * @command: command not found
  *

@@ -1,7 +1,7 @@
 #include "shell.h"
 
 /**
- * free_array - free an array of strings
+ * free_array - free an array of strings.
  * @array: array to free
  */
 

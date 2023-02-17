@@ -2,7 +2,7 @@
 #define MAX_LEN 128
 
 /**
- * display_splash_screen - displays custom ascii art when program starts
+ * display_splash_screen - displays custom ascii art when program starts.
  * @file_ptr - pointer to .txt file that contains ascii art
  */
 

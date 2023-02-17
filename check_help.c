@@ -1,7 +1,7 @@
 #include "shell.h"
 
 /**
- * exit_check - checks if user input is "exit" and, if so, exits the shell
+ * exit_check - checks if user input is "exit" and, if so, exits the shell.
  * @user_input: string to compare to "exit"
  * @NAME: name of program
  *

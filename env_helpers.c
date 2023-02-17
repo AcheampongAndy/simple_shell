@@ -1,7 +1,7 @@
 #include "shell.h"
 
 /**
- * get_path_count - counts number of directories in PATH
+ * get_path_count - counts number of directories in PATH.
  * @path: PATH string
  *
  * Return: number of directories

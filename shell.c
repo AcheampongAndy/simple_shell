@@ -4,7 +4,7 @@ int exitcode = 0;
 int errorcount = 0;
 
 /**
- * main - a simple shell program written in C
+ * main - a simple shell program written in C.
  * @argc: number of arguments
  * @argv: array of arguments
  * @env: array of environment variables

@@ -1,64 +1,115 @@
 #include "shell.h"
 
 /**
- * _atoi - turns a string into an integer.
- * @s: string
- *
- * Return: integer
+ * _myhistory - displays the history list, one command by line, preceded
+ *              with line numbers, starting at 0.
+ * @info: Structure containing potential arguments. Used to maintain
+ *        constant function prototype.
+ *  Return: Always 0
  */
-
-int _atoi(char *s)
+int _myhistory(info_t *info)
 {
-	unsigned int index, neg_counter, num;
-
-	index = 0;
-	neg_counter = 0;
-
-	while (!(s[index] >= '0' && s[index] <= '9') && s[index] != '\0')
-	{
-		if (s[index] == '-')
-			neg_counter++;
-
-		index++;
-	}
-
-	num = 0;
-
-	while (s[index] >= '0' && s[index] <= '9')
-	{
-		num = (s[index] - '0') + (num * 10);
-		index++;
-	}
-
-	if (neg_counter % 2 != 0)
-		num = -num;
-
-	return (num);
+	print_list(info->history);
+	return (0);
 }
 
 /**
- * print_number - print an integer
- * @n: integer to print
+ * unset_alias - sets alias to string
+ * @info: parameter struct
+ * @str: the string alias
+ *
+ * Return: Always 0 on success, 1 on error
  */
-
-void print_number(int n)
+int unset_alias(info_t *info, char *str)
 {
-	int digit, sum, last;
-	int divis = 1000000000;
-	unsigned int num;
+	char *p, c;
+	int ret;
 
-	num = n;
-	sum = 0;
+	p = _strchr(str, '=');
+	if (!p)
+		return (1);
+	c = *p;
+	*p = 0;
+	ret = delete_node_at_index(&(info->alias),
+		get_node_index(info->alias, node_starts_with(info->alias, str, -1)));
+	*p = c;
+	return (ret);
+}
 
-	while (divis > 1)
+/**
+ * set_alias - sets alias to string
+ * @info: parameter struct
+ * @str: the string alias
+ *
+ * Return: Always 0 on success, 1 on error
+ */
+int set_alias(info_t *info, char *str)
+{
+	char *p;
+
+	p = _strchr(str, '=');
+	if (!p)
+		return (1);
+	if (!*++p)
+		return (unset_alias(info, str));
+
+	unset_alias(info, str);
+	return (add_node_end(&(info->alias), str, 0) == NULL);
+}
+
+/**
+ * print_alias - prints an alias string
+ * @node: the alias node
+ *
+ * Return: Always 0 on success, 1 on error
+ */
+int print_alias(list_t *node)
+{
+	char *p = NULL, *a = NULL;
+
+	if (node)
 	{
-		digit = (num / divis) % 10;
-		sum += digit;
-		if (sum != 0)
-			_putchar(digit + '0');
-		divis = divis / 10;
+		p = _strchr(node->str, '=');
+		for (a = node->str; a <= p; a++)
+			_putchar(*a);
+		_putchar('\'');
+		_puts(p + 1);
+		_puts("'\n");
+		return (0);
+	}
+	return (1);
+}
+
+/**
+ * _myalias - mimics the alias builtin (man alias)
+ * @info: Structure containing potential arguments. Used to maintain
+ *          constant function prototype.
+ *  Return: Always 0
+ */
+int _myalias(info_t *info)
+{
+	int i = 0;
+	char *p = NULL;
+	list_t *node = NULL;
+
+	if (info->argc == 1)
+	{
+		node = info->alias;
+		while (node)
+		{
+			print_alias(node);
+			node = node->next;
+		}
+		return (0);
+	}
+	for (i = 1; info->argv[i]; i++)
+	{
+		p = _strchr(info->argv[i], '=');
+		if (p)
+			set_alias(info, info->argv[i]);
+		else
+			print_alias(node_starts_with(info->alias, info->argv[i], '='));
 	}
 
-	last = num % 10;
-	_putchar(last + '0');
+	return (0);
 }

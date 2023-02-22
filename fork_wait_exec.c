@@ -1,53 +1,74 @@
 #include "shell.h"
 
 /**
- * fork_wait_exec - executes commands by first forking a child process
- * then executing in that child while the parent process waits.
- *
- * @commands: array of strings
- * commands[0] is command to execute
- * @path_array: array of directories in PATH
- * @env: array of environment variables
- * remaining strings are arguments to use with that command
- * @NAME: name of program
- * @user_input: input string
+ * clear_info - initializes info_t struct
+ * @info: struct address
  */
-
-void fork_wait_exec(char **commands, char **path_array, char **env,
-		    char *NAME, char *user_input)
+void clear_info(info_t *info)
 {
-	pid_t pid;
-	int status, exec_check;
+	info->arg = NULL;
+	info->argv = NULL;
+	info->path = NULL;
+	info->argc = 0;
+}
 
-	status = 0;
-	pid = fork();
+/**
+ * set_info - initializes info_t struct
+ * @info: struct address
+ * @av: argument vector
+ */
+void set_info(info_t *info, char **av)
+{
+	int i = 0;
 
-	if (pid == -1)
+	info->fname = av[0];
+	if (info->arg)
 	{
-		perror(NAME);
-		exitcode = 1;
-		_exit(1);
-	}
-
-	else if (pid == 0)
-	{
-		exec_check = execve(commands[0], commands, env);
-
-		if (exec_check < 0)
+		info->argv = strtow(info->arg, " \t");
+		if (!info->argv)
 		{
-			exec_error(NAME, commands[0]);
-			free_array(path_array);
-			free_array(commands);
-			free(user_input);
-			exitcode = 126;
-			_exit(126);
+
+			info->argv = malloc(sizeof(char *) * 2);
+			if (info->argv)
+			{
+				info->argv[0] = _strdup(info->arg);
+				info->argv[1] = NULL;
+			}
 		}
+		for (i = 0; info->argv && info->argv[i]; i++)
+			;
+		info->argc = i;
 
-		exitcode = 0;
-		_exit(0);
-
+		replace_alias(info);
+		replace_vars(info);
 	}
+}
 
-	exitcode = 0;
-	wait(&status);
+/**
+ * free_info - frees info_t struct fields
+ * @info: struct address
+ * @all: true if freeing all fields
+ */
+void free_info(info_t *info, int all)
+{
+	ffree(info->argv);
+	info->argv = NULL;
+	info->path = NULL;
+	if (all)
+	{
+		if (!info->cmd_buf)
+			free(info->arg);
+		if (info->env)
+			free_list(&(info->env));
+		if (info->history)
+			free_list(&(info->history));
+		if (info->alias)
+			free_list(&(info->alias));
+		ffree(info->environ);
+			info->environ = NULL;
+		bfree((void **)info->cmd_buf);
+		if (info->readfd > 2)
+			close(info->readfd);
+		_putchar(BUF_FLUSH);
+	}
 }

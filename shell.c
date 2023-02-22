@@ -1,67 +1,159 @@
 #include "shell.h"
 
-int exitcode = 0;
-int errorcount = 0;
+/**
+ * hsh - main shell loop
+ * @info: the parameter & return info struct
+ * @av: the argument vector from main()
+ *
+ * Return: 0 on success, 1 on error, or error code
+ */
+int hsh(info_t *info, char **av)
+{
+	ssize_t r = 0;
+	int builtin_ret = 0;
+
+	while (r != -1 && builtin_ret != -2)
+	{
+		clear_info(info);
+		if (interactive(info))
+			_puts("$ ");
+		_eputchar(BUF_FLUSH);
+		r = get_input(info);
+		if (r != -1)
+		{
+			set_info(info, av);
+			builtin_ret = find_builtin(info);
+			if (builtin_ret == -1)
+				find_cmd(info);
+		}
+		else if (interactive(info))
+			_putchar('\n');
+		free_info(info, 0);
+	}
+	write_history(info);
+	free_info(info, 1);
+	if (!interactive(info) && info->status)
+		exit(info->status);
+	if (builtin_ret == -2)
+	{
+		if (info->err_num == -1)
+			exit(info->status);
+		exit(info->err_num);
+	}
+	return (builtin_ret);
+}
 
 /**
- * main - a simple shell program written in C.
- * @argc: number of arguments
- * @argv: array of arguments
- * @env: array of environment variables
+ * find_builtin - finds a builtin command
+ * @info: the parameter & return info struct
  *
- * Return: 0 always (but program may exit early)
+ * Return: -1 if builtin not found,
+ *			0 if builtin executed successfully,
+ *			1 if builtin found but not successful,
+ *			-2 if builtin signals exit()
  */
-
-int main(__attribute__((unused)) int argc, char **argv, char **env)
+int find_builtin(info_t *info)
 {
-	char *user_input = NULL;
-	char **commands = NULL;
-	char **path_array = NULL;
-	size_t nbytes = 0;
-	ssize_t bytes_read = 0;
-	char *NAME = argv[0];
-	int atty_is = isatty(0);
-	char *filename = "splash_screen.txt";
-	FILE *fptr = NULL;
+	int i, built_in_ret = -1;
+	builtin_table builtintbl[] = {
+		{"exit", _myexit},
+		{"env", _myenv},
+		{"help", _myhelp},
+		{"history", _myhistory},
+		{"setenv", _mysetenv},
+		{"unsetenv", _myunsetenv},
+		{"cd", _mycd},
+		{"alias", _myalias},
+		{NULL, NULL}
+	};
 
-	signal(SIGINT, SIG_IGN);
+	for (i = 0; builtintbl[i].type; i++)
+		if (_strcmp(info->argv[0], builtintbl[i].type) == 0)
+		{
+			info->line_count++;
+			built_in_ret = builtintbl[i].func(info);
+			break;
+		}
+	return (built_in_ret);
+}
+/**
+ * find_cmd - finds a command in PATH
+ * @info: the parameter & return info struct
+ *
+ * Return: void
+ */
+void find_cmd(info_t *info)
+{
+	char *path = NULL;
+	int i, k;
 
-	if((fptr = fopen(filename,"r")) == NULL)
+	info->path = info->argv[0];
+	if (info->linecount_flag == 1)
 	{
-		fprintf(stderr,"error opening %s\n",filename);
-		return 1;
+		info->line_count++;
+		info->linecount_flag = 0;
 	}
-	display_splash_screen(fptr);
-	fclose(fptr);
+	for (i = 0, k = 0; info->arg[i]; i++)
+		if (!is_delim(info->arg[i], " \t\n"))
+			k++;
+	if (!k)
+		return;
 
-	while (1)
+	path = find_path(info, _getenv(info, "PATH="), info->argv[0]);
+	if (path)
 	{
-		errorcount++;
-		if (atty_is)
-			write(STDOUT_FILENO, "hella_shell$ ", 13);
-		bytes_read = getline(&user_input, &nbytes, stdin);
-		if (bytes_read == -1)
+		info->path = path;
+		fork_cmd(info);
+	}
+	else
+	{
+		if ((interactive(info) || _getenv(info, "PATH=")
+			|| info->argv[0][0] == '/') && is_cmd(info, info->argv[0]))
+			fork_cmd(info);
+		else if (*(info->arg) != '\n')
 		{
-			free(user_input);
-			exit(exitcode);
-		}
-		if (exit_check(user_input, NAME) == -1)
-			continue;
-		if (blank_check(user_input) == 1)
-			continue;
-		if (env_check(user_input) == 1)
-		{
-			print_env(env);
-			continue;
-		}
-		path_array = get_path_array(env);
-		commands = parse_input(user_input, path_array, NAME);
-		if (commands != NULL)
-		{
-			fork_wait_exec(commands, path_array, env, NAME, user_input);
-			free_array(commands);
-			free_array(path_array);
+			info->status = 127;
+			print_error(info, "not found\n");
 		}
 	}
-	return (0);
+}
+
+/**
+ * fork_cmd - forks a an exec thread to run cmd
+ * @info: the parameter & return info struct
+ *
+ * Return: void
+ */
+void fork_cmd(info_t *info)
+{
+	pid_t child_pid;
+
+	child_pid = fork();
+	if (child_pid == -1)
+	{
+		/* TODO: PUT ERROR FUNCTION */
+		perror("Error:");
+		return;
+	}
+	if (child_pid == 0)
+	{
+		if (execve(info->path, info->argv, get_environ(info)) == -1)
+		{
+			free_info(info, 1);
+			if (errno == EACCES)
+				exit(126);
+			exit(1);
+		}
+		/* TODO: PUT ERROR FUNCTION */
+	}
+	else
+	{
+		wait(&(info->status));
+		if (WIFEXITED(info->status))
+		{
+			info->status = WEXITSTATUS(info->status);
+			if (info->status == 126)
+				print_error(info, "Permission denied\n");
+		}
+	}
 }

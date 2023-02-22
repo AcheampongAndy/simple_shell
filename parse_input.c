@@ -1,82 +1,86 @@
 #include "shell.h"
 
 /**
- * arg_counter - count the number of arguments.
- * @user_input: string of user input
+ * is_cmd - determines if a file is an executable command
+ * @info: the info struct
+ * @path: path to the file
  *
- * Return: number of arguments
+ * Return: 1 if true, 0 otherwise
  */
-
-int arg_counter(char *user_input)
+int is_cmd(info_t *info, char *path)
 {
-	int i, args, start;
+	struct stat st;
 
-	args = 1;
-	i = 0;
-	start = 0;
-	while (user_input[i] != '\0' && user_input[i] != '\n')
+	(void)info;
+	if (!path || stat(path, &st))
+		return (0);
+
+	if (st.st_mode & S_IFREG)
 	{
-		if (user_input[i] != ' ')
-			start = 1;
-		if (user_input[i] == ' ' && user_input[i + 1] != ' '
-		    && user_input[i + 1] != '\n' && start == 1)
-			args++;
-		i++;
+		return (1);
 	}
-	return (args);
+	return (0);
 }
 
 /**
- * parse_input - parses user_input to create an array of strings
- * @user_input: string to tokenize
- * @path_array: array of directories in PATH
- * @NAME: name of program
+ * dup_chars - duplicates characters
+ * @pathstr: the PATH string
+ * @start: starting index
+ * @stop: stopping index
  *
- * Return: an array of arguments
+ * Return: pointer to new buffer
  */
-
-char **parse_input(char *user_input, char **path_array, char *NAME)
+char *dup_chars(char *pathstr, int start, int stop)
 {
-	char **commands, *token, *dir_path = NULL;
-	int args = 1, i = 0;
+	static char buf[1024];
+	int i = 0, k = 0;
 
-	args = arg_counter(user_input);
-	commands = malloc(sizeof(char *) * (args + 1));
-	if (commands == NULL)
-	{
-		free_array(path_array);
+	for (k = 0, i = start; i < stop; i++)
+		if (pathstr[i] != ':')
+			buf[k++] = pathstr[i];
+	buf[k] = 0;
+	return (buf);
+}
+
+/**
+ * find_path - finds this cmd in the PATH string
+ * @info: the info struct
+ * @pathstr: the PATH string
+ * @cmd: the cmd to find
+ *
+ * Return: full path of cmd if found or NULL
+ */
+char *find_path(info_t *info, char *pathstr, char *cmd)
+{
+	int i = 0, curr_pos = 0;
+	char *path;
+
+	if (!pathstr)
 		return (NULL);
-	}
-	token = strtok(user_input, "\n ");
-	if (path_check(token) == -1)
+	if ((_strlen(cmd) > 2) && starts_with(cmd, "./"))
 	{
-		dir_path = find_path(path_array, token);
-		if (dir_path == NULL)
-		{
-			free(commands);
-			free_array(path_array);
-			command_error(NAME, token);
-			exitcode = 127;
-			return (NULL);
-		}
-		else if (_strcmp("no_access", dir_path) == 0)
-		{
-			free(commands);
-			free_array(path_array);
-			access_error(NAME, token);
-			exitcode = 126;
-			return (NULL);
-		}
-		commands[0] = _strdup(dir_path);
-		free(dir_path);
+		if (is_cmd(info, cmd))
+			return (cmd);
 	}
-	else
-		commands[0] = _strdup(token);
-	for (i = 1; i < args; i++)
+	while (1)
 	{
-		token = strtok(0, "\n ");
-		commands[i] = _strdup(token);
+		if (!pathstr[i] || pathstr[i] == ':')
+		{
+			path = dup_chars(pathstr, curr_pos, i);
+			if (!*path)
+				_strcat(path, cmd);
+			else
+			{
+				_strcat(path, "/");
+				_strcat(path, cmd);
+			}
+			if (is_cmd(info, path))
+				return (path);
+			if (!pathstr[i])
+				break;
+			curr_pos = i;
+		}
+		i++;
 	}
-	commands[i] = NULL;
-	return (commands);
+	return (NULL);
 }
